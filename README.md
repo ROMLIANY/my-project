@@ -1,1 +1,1 @@
-echo # my project
+# my project
