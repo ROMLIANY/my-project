@@ -1,20 +1,30 @@
-﻿document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+﻿import React, { useState } from 'react';
+import axios from 'axios';
 
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
+function App() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [token, setToken] = useState('');
 
-    const res = await fetch('http://localhost:3000/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-    });
-
-    const data = await res.json();
-    const message = document.getElementById('message');
-    if (res.status === 200) {
-        message.innerText = \Login successful! Token: \\;
-    } else {
-        message.innerText = data.message;
+  const login = async () => {
+    try {
+      const res = await axios.post('http://localhost:5000/login', { username, password });
+      setToken(res.data.token);
+      alert('Login successful!');
+    } catch (err) {
+      alert('Login failed');
     }
-});
+  };
+
+  return (
+    <div>
+      <h2>Login</h2>
+      <input placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
+      <input placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+      <button onClick={login}>Login</button>
+      {token && <p>Token: {token}</p>}
+    </div>
+  );
+}
+
+export default App;

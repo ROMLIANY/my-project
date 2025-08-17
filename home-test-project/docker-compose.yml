@@ -1,5 +1,6 @@
 ﻿
 services:
+  # Zookeeper
   zookeeper:
     image: wurstmeister/zookeeper
     container_name: home-test-zookeeper
@@ -7,6 +8,7 @@ services:
       - "2181:2181"
     restart: unless-stopped
 
+  # Kafka
   kafka:
     image: wurstmeister/kafka
     container_name: home-test-kafka
@@ -24,21 +26,75 @@ services:
       - zookeeper
     restart: unless-stopped
 
-  tidb:
-    image: pingcap/tidb:latest
-    container_name: home-test-tidb
+  # PD (Placement Driver)
+  pd:
+    image: pingcap/pd:v6.5.0
+    container_name: home-test-pd
+    command:
+      - --name=pd
+      - --data-dir=/data/pd
+      - --peer-urls=http://0.0.0.0:2380
+      - --client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://pd:2379
     ports:
-      - "4001:4000"
-      - "10080:10080"
+      - "2379:2379"
+    volumes:
+      - pd-data:/data/pd
     restart: unless-stopped
 
+  # TiKV
+  tikv:
+    image: pingcap/tikv:v6.5.0
+    container_name: home-test-tikv
+    command:
+      - --pd=pd:2379
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv:20160
+    volumes:
+      - tikv-data:/data/tikv
+    depends_on:
+      - pd
+    restart: unless-stopped
+
+  # TiDB
+  tidb:
+    image: pingcap/tidb:v6.5.0
+    container_name: home-test-tidb
+    command:
+      - --store=tikv
+      - --path=pd:2379
+      - --host=0.0.0.0
+    ports:
+      - "4000:4000"
+      - "10080:10080"
+    depends_on:
+      - pd
+      - tikv
+    volumes:
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  # TiCDC
+  ticdc:
+    image: pingcap/ticdc:v6.5.0
+    container_name: home-test-ticdc
+    depends_on:
+      - pd
+      - tidb
+      - kafka
+    entrypoint: ["sh", "-c", "/ticdc-init.sh"]
+    volumes:
+      - ./backend/ticdc-init.sh:/ticdc-init.sh:ro
+    restart: unless-stopped
+
+  # Backend (Node.js)
   backend:
     build: ./backend
     container_name: home-test-backend
     working_dir: /app
     volumes:
       - ./backend:/app
-      - /app/node_modules
+      - backend_node_modules:/app/node_modules
     ports:
       - "5000:5000"
     environment:
@@ -46,11 +102,14 @@ services:
       DATABASE_HOST: tidb
       DATABASE_PORT: 4000
       KAFKA_BROKER: kafka:9092
+      JWT_SECRET: supersecretkey
     depends_on:
       - tidb
       - kafka
+      - ticdc
     restart: unless-stopped
 
+  # Frontend (Nginx)
   frontend:
     build: ./frontend
     container_name: home-test-frontend
@@ -59,3 +118,8 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  pd-data:
+  tikv-data:
+  backend_node_modules:

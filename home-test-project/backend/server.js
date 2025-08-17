@@ -1,16 +1,17 @@
 ﻿const express = require('express');
 const bodyParser = require('body-parser');
 const authRoutes = require('./routes/auth');
-const log4js = require('./utils/log');
+const log = require('./utils/log');
 require('dotenv').config();
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 app.use(bodyParser.json());
 app.use('/auth', authRoutes);
 
-app.listen(PORT, () => {
-    log4js.info("Server running on port " + PORT);
-});
+app.get('/', (req, res) => res.json({ status: 'ok' }));
 
+app.listen(PORT, () => {
+  log.info(`Server running on port ${PORT}`);
+});

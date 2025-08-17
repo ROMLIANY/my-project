@@ -1,33 +1,24 @@
-﻿const mysql = require('mysql2/promise');
-const jwt = require('jsonwebtoken');
+﻿const db = require('../utils/db'); // חיבור ל-TiDB
 const log4js = require('../utils/log');
-require('dotenv').config();
-
-const dbConfig = {
-    host: process.env.TIDB_HOST,
-    user: process.env.TIDB_USER,
-    password: process.env.TIDB_PASSWORD,
-    database: 'testdb',
-    port: process.env.TIDB_PORT
-};
+const bcrypt = require('bcryptjs'); // <-- החלפה ל-bcryptjs
+const jwt = require('jsonwebtoken');
 
 exports.login = async (req, res) => {
     const { username, password } = req.body;
 
     try {
-        const connection = await mysql.createConnection(dbConfig);
-        const [rows] = await connection.execute(
-            'SELECT * FROM users WHERE username = ? AND password = ?',
-            [username, password]
-        );
-        await connection.end();
-
-        if (rows.length === 0) {
-            return res.status(401).json({ message: 'Invalid credentials' });
-        }
-
+        const [rows] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
         const user = rows[0];
-        const token = jwt.sign({ id: user.id }, process.env.SECRET_KEY, { expiresIn: '1h' });
+        if (!user) return res.status(401).json({ message: 'Invalid username or password' });
+
+        const isMatch = await bcrypt.compare(password, user.password); // bcryptjs תומך ב-async בדיוק כמו bcrypt
+        if (!isMatch) return res.status(401).json({ message: 'Invalid username or password' });
+
+        const token = jwt.sign(
+            { id: user.id, username: user.username },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
 
         log4js.info(JSON.stringify({
             timestamp: new Date(),
