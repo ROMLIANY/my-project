@@ -1,3 +1,2 @@
 flask
 mysql-connector-python
-log4js
