@@ -102,5 +102,3 @@ frontend/ – Frontend code + Nginx Dockerfile
 
 docker-compose.yml – Docker Compose configuration
 
-Summary
-After starting the containers, the project should work without issues with Frontend, Backend, and TiDB fully operational.
