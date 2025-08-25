@@ -1,11 +1,32 @@
-﻿CREATE DATABASE IF NOT EXISTS testdb;
+﻿-- יצירת database
+CREATE DATABASE IF NOT EXISTS hometest;
+USE hometest;
 
-USE testdb;
-
+-- טבלת משתמשים
 CREATE TABLE IF NOT EXISTS users (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    password VARCHAR(200) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO users (username, password) VALUES ('admin','admin123');
+-- טבלת פוסטים
+CREATE TABLE IF NOT EXISTS posts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- הכנסת דאטה לדוגמה למשתמשים
+INSERT INTO users (username, email, password) VALUES
+('rom', 'rom@example.com', '12345'),
+('admin', 'admin@example.com', 'adminpass');
+
+-- הכנסת דאטה לדוגמה לפוסטים
+INSERT INTO posts (user_id, title, content) VALUES
+(1, 'First Post', 'Hello from rom!'),
+(2, 'Admin Post', 'This is an admin announcement.');

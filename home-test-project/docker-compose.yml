@@ -1,46 +1,37 @@
-﻿
-services:
+﻿services:
+  # TiDB SQL Database
+  tidb:
+    image: pingcap/tidb:v6.5.0
+    container_name: tidb
+    ports:
+      - "4000:4000"    # TiDB SQL
+      - "10080:10080"  # TiDB Dashboard
+    environment:
+      - TZ=Asia/Jerusalem
+    depends_on:
+      - pd
+      - tikv
+    volumes:
+      - ./initdb/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # TiKV Storage
+  tikv:
+    image: pingcap/tikv:v6.5.0
+    container_name: tikv
+    ports:
+      - "20160:20160"
+    depends_on:
+      - pd
+
+  # Placement Driver
   pd:
     image: pingcap/pd:v6.5.0
     container_name: pd
     ports:
       - "2379:2379"
       - "2380:2380"
-    command:
-      - "--name=pd"
-      - "--data-dir=/pd/data"
-      - "--client-urls=http://0.0.0.0:2379"
-      - "--peer-urls=http://0.0.0.0:2380"
-      - "--initial-cluster=pd=http://pd:2380"
-    volumes:
-      - pd-data:/pd/data
 
-  tikv:
-    image: pingcap/tikv:v6.5.0
-    container_name: tikv
-    depends_on:
-      - pd
-    ports:
-      - "20160:20160"
-    command:
-      - "--pd=pd:2379"
-      - "--data-dir=/tikv/data"
-    volumes:
-      - tikv-data:/tikv/data
-
-  tidb:
-    image: pingcap/tidb:v6.5.0
-    container_name: tidb
-    depends_on:
-      - pd
-      - tikv
-    ports:
-      - "4000:4000"
-      - "18080:10080"  # Dashboard
-    command:
-      - "--store=tikv"
-      - "--path=pd:2379"
-
+  # Zookeeper
   zookeeper:
     image: zookeeper:3.8.1
     container_name: zookeeper
@@ -48,34 +39,43 @@ services:
       - "2181:2181"
       - "2888:2888"
       - "3888:3888"
+      - "8081:8080"
 
+  # Kafka
   kafka:
     image: bitnami/kafka:3.5.1
     container_name: kafka
-    depends_on:
-      - zookeeper
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      ALLOW_PLAINTEXT_LISTENER: "yes"
     ports:
       - "9092:9092"
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    depends_on:
+      - zookeeper
 
+  # Frontend
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "8080:80"   # מפה את פורט 80 של Nginx לפורט 8080 במחשב
+
+  # Prometheus Monitoring
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
-    volumes:
-      - ./prometheus:/etc/prometheus
     ports:
       - "9090:9090"
+    volumes:
+      - ./monitor/prometheus.yml:/etc/prometheus/prometheus.yml
 
+  # Grafana Monitoring
   grafana:
     image: grafana/grafana:10.0.3
     container_name: grafana
     ports:
       - "3000:3000"
-
-volumes:
-  pd-data:
-  tikv-data:
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
